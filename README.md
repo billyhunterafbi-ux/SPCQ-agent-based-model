@@ -118,6 +118,14 @@ If you use or adapt this model, please cite the accompanying manuscript.
 
 ---
 
+## Citation
+
+If you use this code, please cite the accompanying manuscript and the Zenodo archive:
+
+DOI: 10.5281/zenodo.xxxxxxx](https://doi.org/10.5281/zenodo.20665865
+
+---
+
 ## Contact
 
 **William Ross Hunter**  
