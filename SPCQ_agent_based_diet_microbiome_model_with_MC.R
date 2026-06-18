@@ -32,7 +32,7 @@ library(knitr)      # summary tables
 # GLOBAL SETTINGS
 # =========================================================
 
-n_sims <- 10   # number of Monte Carlo simulations
+n_sims <- 30   # number of Monte Carlo simulations
 
 # =========================================================
 # UTILITY FUNCTIONS
