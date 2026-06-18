@@ -233,5 +233,252 @@ ggsave("Figure2_SPC_Strategies_MC.png",
        dpi = 300)
 
 # =========================================================
+# FIGURE 3 — DEGENERACY ANALYSIS
+# =========================================================
+
+library(proxy)
+
+# -------------------------
+# CHECK DATA EXISTS
+# -------------------------
+# Requires: all_runs (Monte Carlo outputs)
+# Expected columns:
+# S, P, C, entropy, repertoire_size, dominance, micro_entropy
+
+# -------------------------
+# 1. PREP DATA
+# -------------------------
+
+latent_mat    <- as.matrix(all_runs[, c("S", "P", "C")])
+behaviour_mat <- as.matrix(all_runs[, c("entropy", "repertoire_size")])
+micro_mat     <- as.matrix(all_runs[, c("dominance", "micro_entropy")])
+
+# -------------------------
+# 2. DISTANCE MATRICES
+# -------------------------
+
+latent_dist    <- as.matrix(dist(latent_mat))
+behaviour_dist <- as.matrix(dist(behaviour_mat))
+micro_dist     <- as.matrix(dist(micro_mat))
+
+dist_df <- data.frame(
+  latent      = as.vector(latent_dist),
+  behaviour   = as.vector(behaviour_dist),
+  microbiome  = as.vector(micro_dist)
+) %>%
+  filter(latent > 0)
+
+# -------------------------
+# 3. DEFINE DEGENERACY
+# -------------------------
+
+degenerate_pairs <- dist_df %>%
+  mutate(
+    degenerate = (latent > quantile(latent, 0.7)) &
+                 (behaviour < quantile(behaviour, 0.3))
+  )
+
+# -------------------------
+# 4. SAMPLE FOR VISUAL CLARITY
+# -------------------------
+
+set.seed(123)
+
+plot_df <- degenerate_pairs %>%
+  sample_n(min(15000, nrow(degenerate_pairs)))
+
+# -------------------------
+# 5. PANELS
+# -------------------------
+
+# A — Latent → Behaviour
+p_lat_behav <- ggplot(plot_df, aes(latent, behaviour)) +
+  geom_point(data = subset(plot_df, !degenerate),
+             color = "grey80", alpha = 0.03, size = 0.6) +
+  geom_point(data = subset(plot_df, degenerate),
+             color = "red", alpha = 0.7, size = 0.8) +
+  geom_smooth(method = "lm", color = "black", se = FALSE) +
+  theme_minimal() +
+  labs(
+    title = "Latent vs behavioural distance",
+    x = "Latent distance (S, P, C)",
+    y = "Behavioural distance"
+  )
+
+# B — Behaviour → Microbiome
+plot_df <- plot_df %>%
+  mutate(behaviour_jitter = behaviour + rnorm(n(), 0, 0.3))
+
+p_behav_micro <- ggplot(plot_df,
+                        aes(behaviour_jitter, microbiome)) +
+  geom_point(data = subset(plot_df, !degenerate),
+             color = "grey80", alpha = 0.03, size = 0.6) +
+  geom_point(data = subset(plot_df, degenerate),
+             color = "red", alpha = 0.7, size = 0.8) +
+  geom_smooth(method = "lm", color = "black", se = FALSE) +
+  theme_minimal() +
+  labs(
+    title = "Behaviour vs microbiome distance",
+    x = "Behavioural distance",
+    y = "Microbiome distance"
+  )
+
+# C — Latent → Microbiome
+p_lat_micro <- ggplot(plot_df, aes(latent, microbiome)) +
+  geom_point(data = subset(plot_df, !degenerate),
+             color = "grey80", alpha = 0.03, size = 0.6) +
+  geom_point(data = subset(plot_df, degenerate),
+             color = "red", alpha = 0.7, size = 0.8) +
+  geom_smooth(method = "lm", color = "black", se = FALSE) +
+  theme_minimal() +
+  labs(
+    title = "Latent vs microbiome distance",
+    x = "Latent distance",
+    y = "Microbiome distance"
+  )
+
+# D — Degenerate regime
+p_example <- ggplot(plot_df %>% filter(degenerate),
+                    aes(latent, behaviour)) +
+  geom_point(color = "red", alpha = 0.25, size = 0.7) +
+  geom_density_2d(color = "black", linewidth = 0.5) +
+  theme_minimal() +
+  labs(
+    title = "Degenerate regime structure",
+    x = "Latent distance",
+    y = "Behavioural distance"
+  )
+
+# -------------------------
+# 6. COMBINE
+# -------------------------
+
+figure3 <- (p_lat_behav | p_behav_micro) /
+           (p_lat_micro | p_example)
+
+ggsave("Figure3_Degeneracy.png",
+       plot = figure3,
+       width = 10,
+       height = 8,
+       dpi = 300)
+
+# =========================================================
+# FIGURE 4 — ROBUSTNESS / SENSITIVITY ANALYSIS
+# =========================================================
+
+library(tidyr)
+library(purrr)
+
+# -------------------------
+# Parameter grid
+# -------------------------
+
+grid <- tibble::tribble(
+  ~param, ~value, ~label,
+  "alpha", 0.02, "low",
+  "alpha", 0.1,  "medium",
+  "alpha", 0.4,  "high",
+  "beta",  1,    "low",
+  "beta",  5,    "medium",
+  "beta",  15,   "high",
+  "decay", 0.5,  "low",
+  "decay", 0.9,  "medium",
+  "decay", 0.98, "high"
+)
+
+n_sims_per_setting <- 30
+
+# -------------------------
+# Grid runner
+# -------------------------
+
+run_grid_point <- function(param, value, label) {
+
+  alpha <- if (param == "alpha") value else 0.1
+  beta  <- if (param == "beta")  value else 5
+  decay <- if (param == "decay") value else 0.9
+
+  mc <- lapply(1:n_sims_per_setting, function(s) {
+    run_model_param(seed = s, alpha = alpha, beta = beta, decay = decay)
+  })
+
+  combined <- bind_rows(mc) %>%
+    group_by(agent) %>%
+    summarise(
+      S = mean(S), P = mean(P), C = mean(C),
+      entropy = mean(entropy), repertoire_size = mean(repertoire_size),
+      dominance = mean(dominance),
+      .groups = "drop"
+    )
+
+  latent_dist <- as.matrix(dist(combined[, c("S", "P", "C")]))
+  behav_dist  <- as.matrix(dist(scale(combined[, c("entropy", "repertoire_size")])))
+
+  idx <- upper.tri(latent_dist)
+
+  tibble(
+    param = param,
+    label = label,
+    latent_distance = latent_dist[idx],
+    behavioural_distance = behav_dist[idx]
+  )
+}
+
+robustness_pairs <- grid %>%
+  pmap_dfr(run_grid_point)
+
+# -------------------------
+# Correlations
+# -------------------------
+
+cor_labels <- robustness_pairs %>%
+  group_by(param, label) %>%
+  summarise(
+    rho = cor(latent_distance, behavioural_distance, method = "spearman"),
+    .groups = "drop"
+  ) %>%
+  mutate(label_text = paste0("rho = ", sprintf("%.2f", rho)))
+
+# -------------------------
+# Plot
+# -------------------------
+
+robustness_pairs$label <- factor(robustness_pairs$label,
+                                 levels = c("low", "medium", "high"))
+
+param_labels <- c(
+  alpha = "Learning rate (alpha)",
+  beta  = "Choice stochasticity (beta)",
+  decay = "Microbiome persistence (lambda)"
+)
+
+p_robust <- ggplot(robustness_pairs,
+                   aes(latent_distance, behavioural_distance)) +
+  geom_density_2d(colour = "grey40") +
+  geom_point(alpha = 0.12, size = 0.7, colour = "grey30") +
+  geom_smooth(method = "loess", se = FALSE, colour = "black") +
+  geom_text(
+    data = cor_labels,
+    aes(label = label_text),
+    x = Inf, y = Inf,
+    hjust = 1.1, vjust = 1.3,
+    size = 3
+  ) +
+  facet_grid(label ~ param,
+             labeller = labeller(param = param_labels)) +
+  theme_minimal() +
+  labs(
+    title = "Degeneracy persists across parameter space",
+    x = "Latent distance (S, P, C)",
+    y = "Behavioural distance"
+  )
+
+ggsave("Figure4_Robustness.png",
+       p_robust,
+       width = 9,
+       height = 7,
+       dpi = 300)
+
+# =========================================================
 # END OF SCRIPT
 # =========================================================
