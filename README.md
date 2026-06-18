@@ -30,7 +30,7 @@ The model is **illustrative rather than predictive**: it is intended to isolate 
   Main R script implementing the SPC-Q model, Monte Carlo simulations, and analysis pipeline.
 
 - `SPCQ_generate_figures_MC.R`  
-  R script to reproduce the figures shown in the manuscript from model output files. This script does **not** run simulations and assumes that model outputs have already been generated.
+  R script to reproduce Figures 1–4 shown in the manuscript from model output files. This script does **not** run simulations, except for the parameterised robustness analysis (Figure 4).
 
 - `Microbiome_alpha_beta_summary_MC.csv`  
   Output summary file containing mean and variability metrics for microbiome structure across emergent behavioural strategies.
@@ -86,9 +86,33 @@ The scripts produce:
 
 - Agent-level summaries of dietary entropy, repertoire size, and microbiome metrics
 - Publication-ready figures illustrating relationships between dietary diversity, behavioural strategy, and microbiome dominance
+- Publication-ready figures illustrating emergent behaviour, strategy structure, degeneracy (Figure 3), and robustness to parameter variation (Figure 4)
 - A CSV file summarising mean and variability of microbiome structure across emergent strategies
 
 Figures are saved at publication resolution (300 dpi).
+
+---
+
+## Figure descriptions
+
+The figure generation script reproduces four main figures:
+
+- **Figure 1 — Emergent behaviour**  
+  Illustrates the conceptual structure of the SPC-Q model, latent trait space, and the emergence of dietary diversity across agents.
+
+- **Figure 2 — Behavioural strategies**  
+  Maps latent SPC traits onto emergent behavioural strategies (Explorer, Opportunist, Specialist) and links dietary behaviour to microbiome dominance.
+
+- **Figure 3 — Degeneracy analysis**  
+  Demonstrates that large differences in latent trait space can produce similar dietary behaviour, and that similar behaviours can converge on similar microbiome states. Degenerate regions are identified using distance-based thresholds.
+
+- **Figure 4 — Robustness / sensitivity analysis**  
+  Evaluates whether the degeneracy phenomenon persists under variation in key model parameters:
+  - learning rate (`alpha`)
+  - choice stochasticity (`beta`)
+  - microbiome persistence (`decay`)
+  
+  The analysis recomputes pairwise latent–behavioural relationships across parameter settings and shows that weak coupling (degeneracy) is preserved across a broad parameter space.
 
 ---
 
